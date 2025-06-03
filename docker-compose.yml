@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+
+  authservice:
+    build:
+      context: ./AuthService
+    ports:
+      - "5058:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    networks:
+      - skybooker-net
+
+  flightservice:
+    build:
+      context: ./FlightService
+    ports:
+      - "5221:80"
+    depends_on:
+      - mongodb
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__MongoDb=mongodb://mongodb:27017
+    networks:
+      - skybooker-net
+
+  bookservice:
+    build:
+      context: ./BookService
+    ports:
+      - "5128:80"
+    depends_on:
+      - sqlserver
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=SkyBookerBookings;User Id=sa;Password=YourPassword123!;TrustServerCertificate=true;
+      - FlightServiceUrl=http://flightservice/api/Flight
+    networks:
+      - skybooker-net
+
+  gateway:
+    build:
+      context: ./GatewayService
+    ports:
+      - "5075:80"
+    depends_on:
+      - authservice
+      - flightservice
+      - bookservice
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    networks:
+      - skybooker-net
+
+  mongodb:
+    image: mongo
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - skybooker-net
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      SA_PASSWORD: "YourPassword123!"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql_data:/var/opt/mssql
+    networks:
+      - skybooker-net
+
+volumes:
+  mongo_data:
+  sql_data:
+
+networks:
+  skybooker-net:
+    driver: bridge
