@@ -8,9 +8,9 @@ namespace FlightService.Controllers;
 [Route("api/[controller]")]
 public class FlightController : ControllerBase
 {
-    private readonly FlightService.Services.FlightService _service;
+    private readonly IFlightService _service;
 
-    public FlightController(FlightService.Services.FlightService service)
+    public FlightController(IFlightService service)
     {
         _service = service;
     }

@@ -6,8 +6,8 @@ namespace FlightService.Services
 {
     public interface IFlightService
     {
-        Task<Flight> CreateFlight(Flight flight);
-        Task<IEnumerable<Flight>> GetAllFlights();
-        Task<Flight> GetFlightById(string id);
+        Task<List<Flight>> GetAllAsync();
+        Task<Flight?> GetByIdAsync(string id);
+        Task AddAsync(Flight flight);
     }
 } 

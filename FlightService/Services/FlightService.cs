@@ -4,7 +4,7 @@ using MongoDB.Bson;
 
 namespace FlightService.Services;
 
-public class FlightService
+public class FlightService : IFlightService
 {
     private readonly IMongoCollection<Flight> _flights;
 

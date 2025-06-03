@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Text;
 using System.IO;
+using System.Text.Json;
 
 namespace GatewayService.Tests
 {
@@ -40,11 +41,11 @@ namespace GatewayService.Tests
             // Arrange
             var service = "FlightService";
             var path = "api/flights";
-            var responseContent = "[{\"id\":\"1\",\"flightNumber\":\"FL001\"}]";
+            var responseContent = "[{\"id\":\"FL001\",\"source\":\"Zürich\",\"destination\":\"London\"}]";
             var response = new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.OK,
-                Content = new StringContent(responseContent)
+                Content = new StringContent(responseContent, Encoding.UTF8, "application/json")
             };
 
             _mockGatewayService.Setup(s => s.ForwardRequestAsync(
@@ -90,17 +91,18 @@ namespace GatewayService.Tests
             // Arrange
             var service = "BookService";
             var path = "api/bookings";
-            var requestContent = "{\"flightId\":\"1\",\"passengerName\":\"Test\"}";
-            var responseContent = "{\"id\":\"1\",\"status\":\"confirmed\"}";
+            var requestContent = "{\"flightId\":\"FL001\",\"passengerName\":\"Test\"}";
+            var responseContent = "{\"id\":1,\"status\":\"confirmed\"}";
             
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(requestContent));
             _controller.ControllerContext.HttpContext.Request.Body = stream;
             _controller.ControllerContext.HttpContext.Request.ContentLength = stream.Length;
+            _controller.ControllerContext.HttpContext.Request.ContentType = "application/json";
 
             var response = new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.Created,
-                Content = new StringContent(responseContent)
+                Content = new StringContent(responseContent, Encoding.UTF8, "application/json")
             };
 
             _mockGatewayService.Setup(s => s.ForwardRequestAsync(
@@ -127,6 +129,7 @@ namespace GatewayService.Tests
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(requestContent));
             _controller.ControllerContext.HttpContext.Request.Body = stream;
             _controller.ControllerContext.HttpContext.Request.ContentLength = stream.Length;
+            _controller.ControllerContext.HttpContext.Request.ContentType = "application/json";
 
             var response = new HttpResponseMessage
             {

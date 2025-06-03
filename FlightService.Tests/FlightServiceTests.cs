@@ -2,169 +2,109 @@ using Xunit;
 using FlightService.Controllers;
 using FlightService.Models;
 using FlightService.Services;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Mvc;
 using Moq;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Linq;
 
 namespace FlightService.Tests
 {
     public class FlightServiceTests
     {
         private readonly Mock<IFlightService> _mockFlightService;
-        private readonly Mock<ILogger<FlightController>> _mockLogger;
         private readonly FlightController _controller;
 
         public FlightServiceTests()
         {
             _mockFlightService = new Mock<IFlightService>();
-            _mockLogger = new Mock<ILogger<FlightController>>();
-            _controller = new FlightController(_mockLogger.Object, _mockFlightService.Object);
+            _controller = new FlightController(_mockFlightService.Object);
         }
 
         [Fact]
-        public async Task GetFlights_ReturnsFlightList()
+        public async Task Get_ReturnsAllFlights()
         {
             // Arrange
             var expectedFlights = new List<Flight>
             {
-                new Flight { Id = "1", FlightNumber = "FL001", DepartureCity = "Zürich", ArrivalCity = "London" },
-                new Flight { Id = "2", FlightNumber = "FL002", DepartureCity = "London", ArrivalCity = "Paris" }
+                new Flight { Id = "FL001", Source = "Zürich", Destination = "London" },
+                new Flight { Id = "FL002", Source = "London", Destination = "Paris" }
             };
 
-            _mockFlightService.Setup(s => s.GetFlightsAsync())
+            _mockFlightService.Setup(s => s.GetAllAsync())
                 .ReturnsAsync(expectedFlights);
 
             // Act
-            var result = await _controller.GetFlights();
+            var actionResult = await _controller.Get();
 
             // Assert
-            Assert.Equal(expectedFlights, result);
+            var result = Assert.IsType<ActionResult<List<Flight>>>(actionResult);
+            var flights = Assert.IsType<List<Flight>>(result.Value);
+            Assert.Equal(2, flights.Count);
         }
 
         [Fact]
-        public async Task GetFlightById_ReturnsCorrectFlight()
+        public async Task GetById_ExistingFlight_ReturnsFlight()
         {
             // Arrange
             var expectedFlight = new Flight
             {
-                Id = "1",
-                FlightNumber = "FL001",
-                DepartureCity = "Zürich",
-                ArrivalCity = "London"
+                Id = "FL001",
+                Source = "Zürich",
+                Destination = "London"
             };
 
-            _mockFlightService.Setup(s => s.GetFlightByIdAsync("1"))
+            _mockFlightService.Setup(s => s.GetByIdAsync("FL001"))
                 .ReturnsAsync(expectedFlight);
 
             // Act
-            var result = await _controller.GetFlightById("1");
+            var actionResult = await _controller.GetById("FL001");
 
             // Assert
-            Assert.Equal(expectedFlight, result);
+            var result = Assert.IsType<ActionResult<Flight>>(actionResult);
+            var okResult = Assert.IsType<OkObjectResult>(result.Result);
+            var flight = Assert.IsType<Flight>(okResult.Value);
+            Assert.Equal(expectedFlight.Id, flight.Id);
+            Assert.Equal(expectedFlight.Source, flight.Source);
         }
 
         [Fact]
-        public async Task GetFlightById_NonExistentId_ReturnsNull()
+        public async Task GetById_NonExistingFlight_ReturnsNotFound()
         {
             // Arrange
-            _mockFlightService.Setup(s => s.GetFlightByIdAsync("999"))
+            _mockFlightService.Setup(s => s.GetByIdAsync("FL999"))
                 .ReturnsAsync((Flight)null);
 
             // Act
-            var result = await _controller.GetFlightById("999");
+            var actionResult = await _controller.GetById("FL999");
 
             // Assert
-            Assert.Null(result);
+            var result = Assert.IsType<ActionResult<Flight>>(actionResult);
+            Assert.IsType<NotFoundResult>(result.Result);
         }
 
         [Fact]
-        public async Task SearchFlights_ReturnsMatchingFlights()
+        public async Task Create_ValidFlight_ReturnsCreatedFlight()
         {
             // Arrange
-            var criteria = new FlightSearchCriteria
+            var flight = new Flight
             {
-                DepartureCity = "Zürich",
-                ArrivalCity = "London",
-                DepartureDate = DateTime.Today,
-                MaxPrice = 500,
-                NumberOfPassengers = 2
+                Id = "FL003",
+                Source = "Berlin",
+                Destination = "Paris"
             };
 
-            var expectedFlights = new List<Flight>
-            {
-                new Flight
-                {
-                    Id = "1",
-                    FlightNumber = "FL001",
-                    DepartureCity = "Zürich",
-                    ArrivalCity = "London",
-                    DepartureTime = DateTime.Today.AddHours(10),
-                    Price = 400,
-                    AvailableSeats = 5
-                }
-            };
-
-            _mockFlightService.Setup(s => s.SearchFlightsAsync(criteria))
-                .ReturnsAsync(expectedFlights);
+            _mockFlightService.Setup(s => s.AddAsync(flight))
+                .Returns(Task.CompletedTask);
 
             // Act
-            var result = await _controller.SearchFlights(criteria);
+            var result = await _controller.Create(flight);
 
             // Assert
-            Assert.Single(result);
-            var flight = result.First();
-            Assert.Equal("Zürich", flight.DepartureCity);
-            Assert.Equal("London", flight.ArrivalCity);
-            Assert.Equal(DateTime.Today.AddHours(10), flight.DepartureTime);
-        }
-
-        [Fact]
-        public async Task SearchFlights_NoMatchingFlights_ReturnsEmptyList()
-        {
-            // Arrange
-            var criteria = new FlightSearchCriteria
-            {
-                DepartureCity = "Paris",
-                ArrivalCity = "Tokyo",
-                DepartureDate = DateTime.Today
-            };
-
-            _mockFlightService.Setup(s => s.SearchFlightsAsync(criteria))
-                .ReturnsAsync(new List<Flight>());
-
-            // Act
-            var result = await _controller.SearchFlights(criteria);
-
-            // Assert
-            Assert.Empty(result);
-        }
-
-        [Fact]
-        public async Task SearchFlights_WithMaxPrice_ReturnsOnlyFlightsWithinBudget()
-        {
-            // Arrange
-            var criteria = new FlightSearchCriteria
-            {
-                MaxPrice = 300
-            };
-
-            var expectedFlights = new List<Flight>
-            {
-                new Flight { Id = "1", FlightNumber = "FL001", Price = 250 },
-                new Flight { Id = "2", FlightNumber = "FL002", Price = 280 }
-            };
-
-            _mockFlightService.Setup(s => s.SearchFlightsAsync(criteria))
-                .ReturnsAsync(expectedFlights);
-
-            // Act
-            var result = await _controller.SearchFlights(criteria);
-
-            // Assert
-            Assert.All(result, flight => Assert.True(flight.Price <= 300));
+            var createdAtActionResult = Assert.IsType<CreatedAtActionResult>(result);
+            var returnedFlight = Assert.IsType<Flight>(createdAtActionResult.Value);
+            Assert.Equal(flight.Id, returnedFlight.Id);
+            Assert.Equal(flight.Source, returnedFlight.Source);
         }
     }
 } 
