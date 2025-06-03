@@ -9,6 +9,7 @@ builder.Services.AddSwaggerGen();
 
 // MongoDB Configuration
 builder.Services.AddSingleton<FlightService.Services.FlightService>();
+builder.Services.AddSingleton<IFlightService, FlightService.Services.FlightService>();
 
 
 var app = builder.Build();
