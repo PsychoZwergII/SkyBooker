@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using BookService.Models;
-using System.Collections.Generic;
 
 namespace BookService.Data;
 

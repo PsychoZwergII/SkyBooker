@@ -1,6 +1,7 @@
 ﻿using BookService.Models;
-using BookService.Services;
+using BookService.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace BookService.Controllers;
 
@@ -8,61 +9,43 @@ namespace BookService.Controllers;
 [Route("api/[controller]")]
 public class BookingController : ControllerBase
 {
-    private readonly BookingService _bookingService;
+    private readonly BookingContext _context;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IConfiguration _configuration;
+    private readonly IConfiguration _config;
 
-    public BookingController(BookingService bookingService, IHttpClientFactory httpClientFactory, IConfiguration configuration)
+    public BookingController(BookingContext context, IHttpClientFactory factory, IConfiguration config)
     {
-        _bookingService = bookingService;
-        _httpClientFactory = httpClientFactory;
-        _configuration = configuration;
+        _context = context;
+        _httpClientFactory = factory;
+        _config = config;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Booking>>> GetAll()
     {
-        var bookings = await _bookingService.GetAllAsync();
-        return Ok(bookings);
+        return await _context.Bookings.ToListAsync();
     }
 
-    [HttpGet("{id:int}")]
+    [HttpGet("{id}")]
     public async Task<ActionResult<Booking>> GetById(int id)
     {
-        var booking = await _bookingService.GetByIdAsync(id);
-        if (booking == null) return NotFound();
-        return Ok(booking);
+        var booking = await _context.Bookings.FindAsync(id);
+        return booking is null ? NotFound() : Ok(booking);
     }
 
     [HttpPost]
-    public async Task<ActionResult> Create([FromBody] BookingRequest request)
+    public async Task<ActionResult> Create(Booking booking)
     {
-        // Schritt 1: Flugdaten prüfen
+        // 🔁 AO4: Validierung per HTTP-Call an FlightService
         var client = _httpClientFactory.CreateClient();
-        var flightServiceUrl = _configuration["FlightServiceUrl"] ?? "http://localhost:5221";
-        var flightResponse = await client.GetAsync($"{flightServiceUrl}/api/Flight/{request.FlightId}");
+        var flightServiceUrl = _config["FlightServiceUrl"]; // z. B. http://flightservice:80
+        var response = await client.GetAsync($"{flightServiceUrl}/api/flight/{booking.FlightId}");
 
-        if (!flightResponse.IsSuccessStatusCode)
+        if (!response.IsSuccessStatusCode)
             return BadRequest("Ungültige Flugnummer (FlightId nicht gefunden)");
 
-        // Schritt 2: PassengerName aufsplitten
-        var names = request.PassengerName.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-        string firstName = names.ElementAtOrDefault(0) ?? "";
-        string lastName = names.ElementAtOrDefault(1) ?? "";
-
-        // Schritt 3: neue Buchung erstellen
-        var booking = new Booking
-        {
-            FlightId = request.FlightId,
-            PassengerId = 0, // Optional: später durch echte User-Logik ersetzen
-            PassengerFirstname = firstName,
-            PassengerLastname = lastName,
-            TicketCount = request.SeatsBooked,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        await _bookingService.AddAsync(booking);
+        _context.Bookings.Add(booking);
+        await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetById), new { id = booking.Id }, booking);
     }
 }

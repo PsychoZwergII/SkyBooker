@@ -1,28 +1,43 @@
 ﻿using BookService.Models;
+using BookService.Data;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BookService.Services
 {
-    public class BookingService
+    public class BookingService : IBookingService
     {
-        private static readonly List<Booking> _bookings = new();
-        private static int _nextId = 1;
+        private readonly BookingContext _context;
 
-        public Task<List<Booking>> GetAllAsync()
+        public BookingService(BookingContext context)
         {
-            return Task.FromResult(_bookings);
+            _context = context;
         }
 
-        public Task<Booking?> GetByIdAsync(int id)
+        public async Task<Booking> CreateBooking(Booking booking)
         {
-            var booking = _bookings.FirstOrDefault(b => b.Id == id);
-            return Task.FromResult(booking);
+            booking.CreatedAt = DateTime.UtcNow;
+            booking.UpdatedAt = DateTime.UtcNow;
+            _context.Bookings.Add(booking);
+            await _context.SaveChangesAsync();
+            return booking;
         }
 
-        public Task AddAsync(Booking booking)
+        public async Task<IEnumerable<Booking>> GetAllBookings()
         {
-            booking.Id = _nextId++;
-            _bookings.Add(booking);
-            return Task.CompletedTask;
+            return await _context.Bookings.ToListAsync();
+        }
+
+        public async Task<Booking?> GetBookingById(int id)
+        {
+            return await _context.Bookings.FindAsync(id);
+        }
+
+        public async Task<Booking> GetBookingAsync(string id)
+        {
+            return await _context.Bookings.FindAsync(id);
         }
     }
 }

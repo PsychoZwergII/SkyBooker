@@ -1,17 +1,27 @@
-using FlightService.Models;
 using FlightService.Services;
-using Microsoft.AspNetCore.Mvc;
-
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSingleton<FlightService.Services.FlightService>();
+// Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// MongoDB Configuration
+builder.Services.AddSingleton<FlightService.Services.FlightService>();
+
+
 var app = builder.Build();
-app.UseSwagger();
-app.UseSwaggerUI();
+
+// Configure the HTTP request pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
 app.MapControllers();
+
 app.Run();
